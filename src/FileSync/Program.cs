@@ -66,7 +66,7 @@ namespace FileSync
 				config.Username,
 				config.Password);
 
-			var serverListenerService = new ServerListenerService(tokenProvider, config);
+			var serverListenerService = new ServerListenerService(tokenProvider, config, CreateRequestClient);
 			await serverListenerService.InitAsync();
 
 			var folderSyncService = new FolderSyncService(

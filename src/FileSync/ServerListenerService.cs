@@ -1,7 +1,9 @@
-﻿using Cosei.Client.Http;
+﻿using Cosei.Client.Base;
+using Cosei.Client.Http;
 using FileSync.Contracts;
 using Najlot.Log;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -13,12 +15,14 @@ namespace FileSync
 
 		private readonly TokenProvider _tokenProvider;
 		private readonly ClientConfiguration _configuration;
+		private readonly Func<IRequestClient> _createRequestClient;
 		private SignalRSubscriber _subscriber = null;
 
-		public ServerListenerService(TokenProvider tokenProvider, ClientConfiguration configuration)
+		public ServerListenerService(TokenProvider tokenProvider, ClientConfiguration configuration, Func<IRequestClient> createRequestClient)
 		{
 			_tokenProvider = tokenProvider;
 			_configuration = configuration;
+			_createRequestClient = createRequestClient;
 		}
 
 		public async Task InitAsync()
@@ -58,7 +62,17 @@ namespace FileSync
 			{
 				_logger.Debug("Creating '{Path}'", path);
 
-				await File.WriteAllBytesAsync(path, message.Content);
+				var token = await _tokenProvider.GetToken();
+
+				var headers = new Dictionary<string, string>
+				{
+					{ "Authorization", $"Bearer {token}" }
+				};
+
+				var client = _createRequestClient();
+				var info = new PathInfo { FileName = message.FileName };
+				var fileContent = await client.PostAsync<FileContent, PathInfo>("/api/FileSync/GetFileContent", info, headers);
+				await File.WriteAllBytesAsync(path, fileContent.Content);
 				File.SetLastWriteTimeUtc(path, message.LastWriteTimeUtc);
 			}
 		}
@@ -69,12 +83,30 @@ namespace FileSync
 
 			Directory.CreateDirectory(Path.GetDirectoryName(path));
 
-			if (File.GetLastWriteTimeUtc(path) < message.LastWriteTimeUtc)
+			var lastWriteTimeUtc = DateTime.MinValue;
+
+			if (File.Exists(path))
+			{
+				lastWriteTimeUtc = File.GetLastWriteTimeUtc(path);
+				_ = new FileInfo(path) { IsReadOnly = false };
+			}
+
+			if (lastWriteTimeUtc < message.LastWriteTimeUtc)
 			{
 				_logger.Debug("Updating '{Path}'", path);
 
-				_ = new FileInfo(path) { IsReadOnly = false };
-				await File.WriteAllBytesAsync(path, message.Content);
+				var token = await _tokenProvider.GetToken();
+
+				var headers = new Dictionary<string, string>
+				{
+					{ "Authorization", $"Bearer {token}" }
+				};
+
+				var client = _createRequestClient();
+				var info = new PathInfo { FileName = message.FileName };
+				var fileContent = await client.PostAsync<FileContent, PathInfo>("/api/FileSync/GetFileContent", info, headers);
+
+				await File.WriteAllBytesAsync(path, fileContent.Content);
 				File.SetLastWriteTimeUtc(path, message.LastWriteTimeUtc);
 			}
 		}

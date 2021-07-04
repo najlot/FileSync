@@ -48,18 +48,59 @@ namespace FileSync
 				.Select(p => p.FileName)
 				.ToArray();
 
+			string defaultAnswer = null;
+
 			foreach (var file in localFiles)
 			{
 				if (!serverPaths.Contains(file))
 				{
 					var fullpath = Path.Combine(localPath, file);
-					var time = File.GetLastWriteTimeUtc(fullpath);
-					var content = await File.ReadAllBytesAsync(fullpath);
-					var command = new CreateFile(file, time, content, false);
+					string answer = defaultAnswer;
 
-					_logger.Debug("Posting file '{Path}' to create", fullpath);
+					if (string.IsNullOrEmpty(answer))
+					{
+						Console.WriteLine($"'{fullpath}' does not exist on the server.");
+						Console.WriteLine("Push the file to the server(p), push all(P),");
+						Console.WriteLine("delete the local file(d), delete all local files that do not exist on the server(D)? (default 'p'):");
+						answer = Console.ReadLine();
+					}
+					
+					bool postToTheServer = true;
 
-					await _client.PostAsync("/api/FileSync/CreateFile", command, headers);
+					switch (answer.Trim())
+					{
+						case "P":
+							defaultAnswer = "p";
+							postToTheServer = true;
+							break;
+						case "p":
+							postToTheServer = true;
+							break;
+
+						case "D":
+							defaultAnswer = "d";
+							postToTheServer = false;
+							break;
+						case "d":
+							postToTheServer = false;
+							break;
+					}
+
+					if (postToTheServer)
+					{
+						var time = File.GetLastWriteTimeUtc(fullpath);
+						var content = await File.ReadAllBytesAsync(fullpath);
+						var command = new CreateFile(file, time, content, false);
+
+						_logger.Debug("Posting file '{Path}' to create", fullpath);
+
+						await _client.PostAsync("/api/FileSync/CreateFile", command, headers);
+					}
+					else
+					{
+						_logger.Debug("Deleting file '{Path}'...", fullpath);
+						File.Delete(fullpath);
+					}
 				}
 			}
 

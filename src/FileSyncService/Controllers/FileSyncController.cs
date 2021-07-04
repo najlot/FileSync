@@ -59,7 +59,6 @@ namespace FileSyncService.Controllers
 			var message = new FileCreated(
 				command.FileName,
 				command.LastWriteTimeUtc,
-				command.Content,
 				command.IsDirectory);
 
 			await _publisher.PublishAsync(message);
@@ -75,8 +74,7 @@ namespace FileSyncService.Controllers
 
 			var message = new FileUpdated(
 				command.FileName,
-				command.LastWriteTimeUtc,
-				command.Content);
+				command.LastWriteTimeUtc);
 
 			await _publisher.PublishAsync(message);
 		}

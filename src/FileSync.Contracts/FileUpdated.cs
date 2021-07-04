@@ -4,15 +4,13 @@ namespace FileSync.Contracts
 {
 	public class FileUpdated
 	{
-		public FileUpdated(string fileName, DateTime lastWriteTimeUtc, byte[] content)
+		public FileUpdated(string fileName, DateTime lastWriteTimeUtc)
 		{
 			FileName = fileName;
 			LastWriteTimeUtc = lastWriteTimeUtc;
-			Content = content;
 		}
 
 		public string FileName { get; private set; }
 		public DateTime LastWriteTimeUtc { get; private set; }
-		public byte[] Content { get; private set; }
 	}
 }
